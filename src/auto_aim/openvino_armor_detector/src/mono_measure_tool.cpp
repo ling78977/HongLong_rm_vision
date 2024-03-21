@@ -30,13 +30,24 @@ MonoMeasureTool::MonoMeasureTool(std::vector<double> camera_intrinsic,
   small_armor_points_.emplace_back(cv::Point3f(0, small_half_y, -small_half_z));
   small_armor_points_.emplace_back(cv::Point3f(0, small_half_y, small_half_z));
   small_armor_points_.emplace_back(cv::Point3f(0, -small_half_y, small_half_z));
-  small_armor_points_.emplace_back(cv::Point3f(0, -small_half_y, -small_half_z));
+  small_armor_points_.emplace_back(
+      cv::Point3f(0, -small_half_y, -small_half_z));
 
   large_armor_points_.emplace_back(cv::Point3f(0, large_half_y, -large_half_z));
   large_armor_points_.emplace_back(cv::Point3f(0, large_half_y, large_half_z));
   large_armor_points_.emplace_back(cv::Point3f(0, -large_half_y, large_half_z));
-  large_armor_points_.emplace_back(cv::Point3f(0, -large_half_y, -large_half_z));
+  large_armor_points_.emplace_back(
+      cv::Point3f(0, -large_half_y, -large_half_z));
 
+  filted_small_armor_points_.emplace_back(cv::Point3f(0, small_half_y, 0));
+  filted_small_armor_points_.emplace_back(cv::Point3f(0, 0, -small_half_z));
+  filted_small_armor_points_.emplace_back(cv::Point3f(0, -small_half_y, 0));
+  filted_small_armor_points_.emplace_back(cv::Point3f(0, 0, small_half_z));
+
+  filted_large_armor_points_.emplace_back(cv::Point3f(0, large_half_y, 0));
+  filted_large_armor_points_.emplace_back(cv::Point3f(0, 0, -large_half_z));
+  filted_large_armor_points_.emplace_back(cv::Point3f(0, -large_half_y, 0));
+  filted_large_armor_points_.emplace_back(cv::Point3f(0, 0, large_half_z));
 }
 
 bool MonoMeasureTool::setCameraInfo(std::vector<double> camera_intrinsic,
@@ -72,6 +83,21 @@ bool MonoMeasureTool::solvePnP(const ArmorObject &obj, cv::Mat &rvec,
                       camera_distortion_, rvec, tvec, false, cv::SOLVEPNP_IPPE);
 }
 
+bool MonoMeasureTool::solveFiltedPnP(const ArmorObject &obj, cv::Mat &rvec,
+                                     cv::Mat &tvec) {
+  std::vector<cv::Point2f> image_armor_points;
+  image_armor_points.emplace_back((obj.pts[0] + obj.pts[1]) / 2);
+  image_armor_points.emplace_back((obj.pts[1] + obj.pts[2]) / 2);
+  image_armor_points.emplace_back((obj.pts[2] + obj.pts[3]) / 2);
+  image_armor_points.emplace_back((obj.pts[3] + obj.pts[0]) / 2);
+
+  auto object_points =
+      obj.is_big ? filted_large_armor_points_ : filted_small_armor_points_;
+
+  return cv::solvePnP(object_points, image_armor_points, camera_intrinsic_,
+                      camera_distortion_, rvec, tvec, false, cv::SOLVEPNP_IPPE);
+}
+
 // refer to :http://www.cnblogs.com/singlex/p/pose_estimation_1_1.html
 // 根据输入的参数将图像坐标转换到相机坐标中
 // 输入为图像上的点坐标
@@ -102,7 +128,8 @@ void MonoMeasureTool::calc_view_angle(cv::Point2f p, float &pitch, float &yaw) {
 }
 
 // bool MonoMeasureTool::calc_armor_target(const ArmorObject &obj,
-//                                         cv::Point3f &position, cv::Mat &rvec) {
+//                                         cv::Point3f &position, cv::Mat &rvec)
+//                                         {
 //   if (is_big_armor(obj)) {
 //     return solve_pnp(obj.pts, big_armor_3d_points, position, rvec,
 //                      cv::SOLVEPNP_IPPE);
@@ -124,4 +151,4 @@ float MonoMeasureTool::calcDistanceToCenter(const ArmorObject &obj) {
   return sqrt(dis_vec.dot(dis_vec));
 }
 
-} // namespace rm_auto_aim
+}  // namespace rm_auto_aim

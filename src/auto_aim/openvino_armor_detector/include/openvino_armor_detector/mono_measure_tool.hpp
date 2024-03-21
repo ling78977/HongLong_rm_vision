@@ -18,14 +18,13 @@
 #include <geometry_msgs/msg/point.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/opencv.hpp>
-#include <vector>
-
 #include <openvino_armor_detector/types.hpp>
+#include <vector>
 
 namespace rm_auto_aim {
 
 class MonoMeasureTool {
-public:
+ public:
   MonoMeasureTool() = default;
 
   explicit MonoMeasureTool(std::vector<double> camera_intrinsic,
@@ -52,6 +51,18 @@ public:
    * @return false
    */
   bool solvePnP(const ArmorObject &obj, cv::Mat &rvec, cv::Mat &tvec);
+
+  /**
+   * @brief Solve Perspective-n-Point problem in camera
+   * 3d点坐标求解（use solve pnp） 将四点平均滤波以后再PnP求解
+   * @param points2d a list of points in image frame
+   * @param points3d a list of points correspondend to points2d
+   * @param position output position of the origin point of 3d coordinate system
+   * @return true
+   * @return false
+   */
+  bool solveFiltedPnP(const ArmorObject &obj, cv::Mat &rvec, cv::Mat &tvec);
+
   /**
    * @brief 逆投影，已知深度，2d->3d点求解
    *
@@ -83,22 +94,33 @@ public:
 
   float calcDistanceToCenter(const ArmorObject &obj);
 
-private:
-
+ private:
   std::vector<cv::Point3f> small_armor_points_;
   std::vector<cv::Point3f> large_armor_points_;
+
+  /**
+   * 灯条四点顺序
+   * 0 3
+   * 1 2
+   * 平均滤波后顺序括号中：
+   * 0 (3) 3
+   *(0)   (2)
+   * 1 (1) 4
+   */
+  std::vector<cv::Point3f> filted_small_armor_points_;
+  std::vector<cv::Point3f> filted_large_armor_points_;
+
   // 相机参数
-  cv::Mat camera_intrinsic_;  // 相机内参3*3
-  cv::Mat camera_distortion_; // 相机畸变参数1*5
+  cv::Mat camera_intrinsic_;   // 相机内参3*3
+  cv::Mat camera_distortion_;  // 相机畸变参数1*5
 
   // Unit: mm
   static constexpr float SMALL_ARMOR_WIDTH = 135;
   static constexpr float SMALL_ARMOR_HEIGHT = 55;
   static constexpr float LARGE_ARMOR_WIDTH = 225;
   static constexpr float LARGE_ARMOR_HEIGHT = 55;
-
 };
 
-} // namespace rm_auto_aim
+}  // namespace rm_auto_aim
 
-#endif // OPENVINO_ARMOR_DETECTOR__MONO_MEASURE_TOOL_HPP_
+#endif  // OPENVINO_ARMOR_DETECTOR__MONO_MEASURE_TOOL_HPP_
