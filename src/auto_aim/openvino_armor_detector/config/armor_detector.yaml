@@ -1,16 +1,17 @@
 /**:
   ros__parameters:
     use_sensor_data_qos: false
-    debug_mode: true
+    
 
     detector:
       camera_name: 'camera'
       subscribe_compressed: false
 
       # Model 
-      model_path: 'package://openvino_armor_detector/model/opt-1208-001.onnx'
+      model_path: 'package://openvino_armor_detector/model/best_06_02.onnx'
       device_type: 'AUTO'
       confidence_threshold: 0.80
       top_k: 128
       nms_threshold: 0.3
       detect_color: 0
+      debug_mode: false

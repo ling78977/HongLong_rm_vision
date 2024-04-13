@@ -46,7 +46,7 @@ RMSerialDriver::RMSerialDriver(const rclcpp::NodeOptions &options)
   // Tracker reset service client
   reset_tracker_client_ =
       this->create_client<std_srvs::srv::Trigger>("/tracker/reset");
-
+ 
   try {
     serial_driver_->init_port(device_name_, *device_config_);
     if (!serial_driver_->port()->is_open()) {
@@ -74,6 +74,8 @@ RMSerialDriver::RMSerialDriver(const rclcpp::NodeOptions &options)
   target_sub_ = this->create_subscription<auto_aim_interfaces::msg::Target>(
       "/tracker/target", rclcpp::SensorDataQoS(),
       std::bind(&RMSerialDriver::sendData, this, std::placeholders::_1));
+
+      
 }
 
 RMSerialDriver::~RMSerialDriver() {
@@ -89,6 +91,8 @@ RMSerialDriver::~RMSerialDriver() {
     owned_ctx_->waitForExit();
   }
 }
+
+
 
 void RMSerialDriver::receiveData() {
   std::vector<uint8_t> temp_data(sizeof(ReceivePacket) * 2);
@@ -110,6 +114,10 @@ void RMSerialDriver::receiveData() {
         RCLCPP_ERROR(get_logger(), "No valid data!");
         continue;
       }
+      // for(int i=0;i<29;i++){
+      //   printf("%x ",data[i]);
+      // }
+      // printf("\n");
       ReceivePacket packet = fromVector(data);
       bool crc_ok = crc16::Verify_CRC16_Check_Sum(
           reinterpret_cast<const uint8_t *>(&packet), sizeof(packet));
@@ -122,8 +130,8 @@ void RMSerialDriver::receiveData() {
         if (packet.reset_tracker) {
           resetTracker();
         }
-        RCLCPP_INFO(get_logger(), "yaw:%f,pitch:%f,roll:%f", packet.yaw,
-                    packet.pitch, packet.roll);
+        // RCLCPP_INFO(get_logger(), "yaw:%f,pitch:%f,roll:%f", packet.yaw,
+        //             packet.pitch, packet.roll);
         geometry_msgs::msg::TransformStamped t;
         timestamp_offset_ = this->get_parameter("timestamp_offset").as_double();
         t.header.stamp =
@@ -184,8 +192,8 @@ void RMSerialDriver::sendData(
 
     std_msgs::msg::Float64 latency;
     latency.data = (this->now() - msg->header.stamp).seconds() * 1000.0;
-    RCLCPP_DEBUG_STREAM(
-        get_logger(), "Total latency: " + std::to_string(latency.data) + "ms");
+    RCLCPP_INFO_STREAM(
+        get_logger(), "[serial_driver ]Total latency: " + std::to_string(latency.data) + "ms");
     latency_pub_->publish(latency);
   } catch (const std::exception &ex) {
     RCLCPP_ERROR(get_logger(), "Error while sending data: %s", ex.what());

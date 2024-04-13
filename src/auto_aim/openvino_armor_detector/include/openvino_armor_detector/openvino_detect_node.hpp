@@ -15,47 +15,48 @@
 #ifndef OPENVINO_ARMOR_DETECTOR__OPENVINO_DETECT_NODE_HPP_
 #define OPENVINO_ARMOR_DETECTOR__OPENVINO_DETECT_NODE_HPP_
 
-#include <queue>
 #include <future>
-#include <vector>
-#include <string>
 #include <memory>
+#include <queue>
+#include <string>
+#include <vector>
 
-#include <rclcpp/rclcpp.hpp>
 #include <image_transport/image_transport.hpp>
+#include <rclcpp/rclcpp.hpp>
 
-#include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/image.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
-
-#include <openvino_armor_detector/types.hpp>
-#include <openvino_armor_detector/openvino_detector.hpp>
-#include <openvino_armor_detector/mono_measure_tool.hpp>
 #include <auto_aim_interfaces/msg/armors.hpp>
+#include <openvino_armor_detector/mono_measure_tool.hpp>
+#include <openvino_armor_detector/openvino_detector.hpp>
+#include <openvino_armor_detector/types.hpp>
 
-namespace rm_auto_aim
-{
+namespace rm_auto_aim {
 
-class OpenVINODetectNode : public rclcpp::Node
-{
+class OpenVINODetectNode : public rclcpp::Node {
 public:
-  OpenVINODetectNode(
-    rclcpp::NodeOptions options);
+  OpenVINODetectNode(rclcpp::NodeOptions options);
 
 private:
-  void init_detector();
+  void initDetector();
 
-  void img_callback(const sensor_msgs::msg::Image::ConstSharedPtr & msg);
+  void imgCallback(const sensor_msgs::msg::Image::ConstSharedPtr &img_msg);
 
-  void openvino_detect_callback(
-    const std::vector<ArmorObject> & objs, int64_t timestamp_nanosec,
-    const cv::Mat & src_img);
+  std::string getText(ArmorObject &obj);
+
+  void fillArmorMsg(auto_aim_interfaces::msg::Armor &armor_msg,ArmorObject &obj);
+
+  void publishArmorsMsg(const sensor_msgs::msg::Image::ConstSharedPtr &img_msg, std::vector<ArmorObject> &objs);
+
+  void publishDebugImage(const sensor_msgs::msg::Image::ConstSharedPtr &img_msg,
+                         std::vector<ArmorObject> &objs);
 
   // Debug functions
-  void create_debug_publishers();
+  void createDebugPublishers();
 
-  void destroy_debug_publishers();
+  void destroyDebugPublishers();
 
   void publishMarkers();
 
@@ -64,7 +65,7 @@ private:
   std::string transport_type_;
   std::string frame_id_;
   // OpenVINO Detector
-  int detect_color_;  // 0: red, 1: blue
+  int detect_color_; // 0: red, 1: blue
   std::unique_ptr<OpenVINODetector> detector_;
   std::queue<std::future<bool>> detect_requests_;
   // Camera info
@@ -78,7 +79,8 @@ private:
   auto_aim_interfaces::msg::Armors armors_msg_;
 
   // ROS
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
+      marker_pub_;
   rclcpp::Publisher<auto_aim_interfaces::msg::Armors>::SharedPtr armors_pub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cam_info_sub_;
   std::shared_ptr<image_transport::Subscriber> img_sub_;
@@ -90,6 +92,6 @@ private:
   image_transport::Publisher debug_img_pub_;
 };
 
-}  // namespace rm_auto_aim
+} // namespace rm_auto_aim
 
-#endif  // OPENVINO_ARMOR_DETECTOR__OPENVINO_DETECT_NODE_HPP_
+#endif // OPENVINO_ARMOR_DETECTOR__OPENVINO_DETECT_NODE_HPP_

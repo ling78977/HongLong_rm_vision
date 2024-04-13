@@ -131,7 +131,7 @@ public:
           fail_conut_++;
         }
 
-        if (fail_conut_ > 5) {
+        if (fail_conut_ > 15) {
           RCLCPP_FATAL(this->get_logger(), "Failed to get image buffer, exit!");
           rclcpp::shutdown();
         }

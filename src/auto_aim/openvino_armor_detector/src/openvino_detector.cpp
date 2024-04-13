@@ -17,12 +17,14 @@
 #include <chrono>
 #include <ctime>
 
+#include <rclcpp/rclcpp.hpp>
+
 namespace rm_auto_aim {
 
 static const int INPUT_W = 416;       // Width of input
 static const int INPUT_H = 416;       // Height of input
 static constexpr int NUM_CLASSES = 8; // Number of classes
-static constexpr int NUM_COLORS = 4;  // Number of color
+static constexpr int NUM_COLORS = 8;  // Number of color
 static constexpr float MERGE_CONF_ERROR = 0.15;
 static constexpr float MERGE_MIN_IOU = 0.9;
 
@@ -98,29 +100,6 @@ generate_grids_and_stride(const int target_w, const int target_h,
   }
 }
 
-bool OpenVINODetector::isBigArmor(const ArmorObject &obj) {
-  if (obj.number == ArmorNumber::NO1 || obj.number == ArmorNumber::BASE) {
-    return true;
-  } else if (obj.number == ArmorNumber::NO3 || obj.number == ArmorNumber::NO4 ||
-             obj.number == ArmorNumber::NO5) {
-    // pts older:
-    //  0 3
-    //  1 2
-    SimLight light_1 = SimLight(obj.pts[0], obj.pts[1]);
-    SimLight light_2 = SimLight(obj.pts[3], obj.pts[2]);
-    float avg_light_length = (light_1.length + light_2.length) / 2;
-    float center_distance =
-        std::sqrt(std::pow(light_1.center.x - light_2.center.x, 2) +
-                  std::pow(light_1.center.y - light_2.center.y, 2)) /
-        avg_light_length;
-    
-    return (center_distance>3.2);
-    
-  } else {
-    return false;
-  }
-}
-
 static void generate_proposals(
     std::vector<ArmorObject> &output_objs, std::vector<float> &scores,
     std::vector<cv::Rect> &rects, const cv::Mat &output_buffer,
@@ -146,6 +125,7 @@ static void generate_proposals(
         output_buffer.row(anchor_idx)
             .colRange(9 + NUM_COLORS, 9 + NUM_COLORS + NUM_CLASSES);
     // Argmax
+    
     cv::minMaxLoc(color_scores, NULL, &color_score, NULL, &color_id);
     cv::minMaxLoc(num_scores, NULL, &num_score, NULL, &num_id);
 
@@ -248,6 +228,29 @@ static void nms_merge_sorted_bboxes(std::vector<ArmorObject> &faceobjects,
   }
 }
 
+// bool OpenVINODetector::isBigArmor(const ArmorObject &obj) {
+//   if (obj.number == ArmorNumber::NO1 || obj.number == ArmorNumber::BASE) {
+//     return true;
+//   } else if (obj.number == ArmorNumber::NO3 || obj.number == ArmorNumber::NO4 ||
+//              obj.number == ArmorNumber::NO5) {
+//     // pts older:
+//     //  0 3
+//     //  1 2
+//     SimLight light_1 = SimLight(obj.pts[0], obj.pts[1]);
+//     SimLight light_2 = SimLight(obj.pts[3], obj.pts[2]);
+//     float avg_light_length = (light_1.length + light_2.length) / 2;
+//     float center_distance =
+//         std::sqrt(std::pow(light_1.center.x - light_2.center.x, 2) +
+//                   std::pow(light_1.center.y - light_2.center.y, 2)) /
+//         avg_light_length;
+
+//     return (center_distance > 3.2);
+
+//   } else {
+//     return false;
+//   }
+// }
+
 OpenVINODetector::OpenVINODetector(const std::filesystem::path &model_path,
                                    const std::string &device_name,
                                    float conf_threshold, int top_k,
@@ -264,11 +267,13 @@ void OpenVINODetector::init() {
   if (ov_core_ == nullptr) {
     ov_core_ = std::make_unique<ov::Core>();
   }
-
+  ov_core_->set_property("CPU", ov::enable_profiling(true));
   auto model = ov_core_->read_model(model_path_);
+  
 
   // Set infer type
   ov::preprocess::PrePostProcessor ppp(model);
+  ppp.build(); 
   // Set input output precision
   ppp.input().tensor().set_element_type(ov::element::f32);
   ppp.output().tensor().set_element_type(ov::element::f32);
@@ -280,42 +285,23 @@ void OpenVINODetector::init() {
 
   strides_ = {8, 16, 32};
   generate_grids_and_stride(INPUT_W, INPUT_H, strides_, grid_strides_);
+
+  infer_request_ = compiled_model_->create_infer_request();
 }
 
-std::future<bool> OpenVINODetector::push_input(const cv::Mat &rgb_img,
-                                               int64_t timestamp_nanosec) {
+bool OpenVINODetector::detect(cv::Mat &rgb_img,
+                              std::vector<ArmorObject> &objs_result) {
+
   if (rgb_img.empty()) {
-    // return false when img is empty
-    return std::async([]() { return false; });
+    return false;
   }
-
-  // Reprocess
-  Eigen::Matrix3f
-      transform_matrix; // transform matrix from resized image to source image.
-  cv::Mat resized_img = letterbox(rgb_img, transform_matrix);
-  // auto now = std::chrono::system_clock::now();
-  // auto duran = now.time_since_epoch();
-  // timestamp_nanosec =
-  //     std::chrono::duration_cast<std::chrono::nanoseconds>(duran).count();
-
-  // Start async detect
-  return std::async(std::launch::async, &OpenVINODetector::process_callback,
-                    this, resized_img, transform_matrix, timestamp_nanosec,
-                    rgb_img);
-}
-
-void OpenVINODetector::set_callback(DetectorCallback callback) {
-  infer_callback_ = callback;
-}
-
-bool OpenVINODetector::process_callback(const cv::Mat resized_img,
-                                        Eigen::Matrix3f transform_matrix,
-                                        int64_t timestamp_nanosec,
-                                        const cv::Mat &src_img) {
-  // BGR->RGB, u8(0-255)->f32(0.0-1.0), HWC->NCHW
-  // note: TUP's model no need to normalize
+  cv::Mat resized_img = letterbox(rgb_img, transform_matrix_);
+  
   cv::Mat blob = cv::dnn::blobFromImage(
       resized_img, 1., cv::Size(INPUT_W, INPUT_H), cv::Scalar(0, 0, 0), true);
+    
+  
+
 
   // Feed blob into input
   auto input_port = compiled_model_->input();
@@ -324,26 +310,26 @@ bool OpenVINODetector::process_callback(const cv::Mat resized_img,
       ov::Shape(std::vector<size_t>{1, 3, INPUT_W, INPUT_H}), blob.ptr(0));
 
   // Start inference
-  auto infer_request = compiled_model_->create_infer_request();
-  infer_request.set_input_tensor(input_tensor);
-  infer_request.infer();
+  infer_request_.set_input_tensor(input_tensor);
+  infer_request_.infer();
 
-  auto output = infer_request.get_output_tensor();
+  auto output = infer_request_.get_output_tensor();
 
   // Process output data
   auto output_shape = output.get_shape();
+
   // 3549 x 21 Matrix
   cv::Mat output_buffer(output_shape[1], output_shape[2], CV_32F,
                         output.data());
-
+  
   // Parsed variable
-  std::vector<ArmorObject> objs_tmp, objs_result;
+  std::vector<ArmorObject> objs_tmp;
   std::vector<cv::Rect> rects;
   std::vector<float> scores;
   std::vector<int> indices;
 
   // Parse YOLO output
-  generate_proposals(objs_tmp, scores, rects, output_buffer, transform_matrix,
+  generate_proposals(objs_tmp, scores, rects, output_buffer, transform_matrix_,
                      this->conf_threshold_, this->grid_strides_);
 
   // TopK
@@ -359,7 +345,6 @@ bool OpenVINODetector::process_callback(const cv::Mat resized_img,
 
   for (size_t i = 0; i < indices.size(); i++) {
     objs_result.push_back(std::move(objs_tmp[indices[i]]));
-
     if (objs_result[i].pts.size() >= 8) {
       auto N = objs_result[i].pts.size();
       cv::Point2f pts_final[4];
@@ -377,13 +362,7 @@ bool OpenVINODetector::process_callback(const cv::Mat resized_img,
     }
   }
 
-  // Call callback function
-  if (this->infer_callback_) {
-    this->infer_callback_(objs_result, timestamp_nanosec, src_img);
-    return true;
-  }
-
-  return false;
+  return true;
 }
 
 } // namespace rm_auto_aim

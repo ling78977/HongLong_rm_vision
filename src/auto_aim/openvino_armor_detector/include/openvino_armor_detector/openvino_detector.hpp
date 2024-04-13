@@ -39,26 +39,21 @@ struct GridAndStride {
   int grid1;
   int stride;
 };
-struct SimLight {
-  SimLight() = default;
-  explicit SimLight(const cv::Point2f &pt1, const cv::Point2f &pt2) {
-    length = std::sqrt(std::pow(pt1.x - pt2.x, 2) + std::pow(pt1.y - pt2.y, 2));
-    center = cv::Point2f((pt1.x + pt2.x) / 2, (pt1.y + pt2.y) / 2);
-  }
-  double length;
-  cv::Point2f center;
-};
 
+// struct SimLight {
+//   SimLight() = default;
+//   explicit SimLight(const cv::Point2f &pt1, const cv::Point2f &pt2) {
+//     length = std::sqrt(std::pow(pt1.x - pt2.x, 2) + std::pow(pt1.y - pt2.y, 2));
+//     center = cv::Point2f((pt1.x + pt2.x) / 2, (pt1.y + pt2.y) / 2);
+//   }
+//   double length;
+//   cv::Point2f center;
+// };
 
 class OpenVINODetector {
-public:
-  using DetectorCallback = std::function<void(const std::vector<ArmorObject> &,
-                                              int64_t, const cv::Mat &)>;
 
 public:
-
-
-bool isBigArmor(const ArmorObject &obj);
+  // bool isBigArmor(const ArmorObject &obj);
   /**
    * @brief Construct a new OpenVINO Detector object
    *
@@ -80,27 +75,10 @@ bool isBigArmor(const ArmorObject &obj);
    */
   void init();
 
-  /**
-   * @brief Push a single image to inference
-   *
-   * @param rgb_img
-   * @param timestamp_nanosec
-   * @return std::future<bool> If callback finished return ture.
-   */
-  std::future<bool> push_input(const cv::Mat &rgb_img,
-                               int64_t timestamp_nanosec);
+  
 
-  /**
-   * @brief Set the inference callback
-   *
-   * @param callback
-   */
-  void set_callback(DetectorCallback callback);
 
-private:
-  bool process_callback(const cv::Mat resized_img,
-                        Eigen::Matrix3f transform_matrix,
-                        int64_t timestamp_nanosec, const cv::Mat &src_img);
+  bool detect(cv::Mat &rgb_img, std::vector<ArmorObject> &objs);
 
 private:
   std::string model_path_;
@@ -111,10 +89,12 @@ private:
   std::vector<int> strides_;
   std::vector<GridAndStride> grid_strides_;
 
-  DetectorCallback infer_callback_;
-
   std::unique_ptr<ov::Core> ov_core_;
-  std::unique_ptr<ov::CompiledModel> compiled_model_;
+  std::unique_ptr<ov::CompiledModel> compiled_model_; // 可执行网络
+
+  ov::InferRequest infer_request_; // 推理请求
+
+  Eigen::Matrix<float, 3, 3> transform_matrix_;
 };
 } // namespace rm_auto_aim
 

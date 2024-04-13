@@ -72,6 +72,6 @@ def generate_launch_description():
     return LaunchDescription([
         robot_state_publisher,
         cam_detector,
-        delay_serial_node,
-        delay_tracker_node,
+        # delay_serial_node,
+        # delay_tracker_node,
     ])

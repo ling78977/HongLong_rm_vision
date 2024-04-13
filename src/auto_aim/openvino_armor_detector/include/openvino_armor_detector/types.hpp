@@ -24,10 +24,15 @@ namespace rm_auto_aim
 
 enum class ArmorColor
 {
-  BLUE = 0,
-  RED,
-  NONE,
-  PURPLE
+  BLUE_SMALL = 0,
+  BLUE_BIG,
+  RED_SMALL,
+  RED_BIG,
+  GRAY_SMALL,
+  GRAY_BIG,
+  PURPLE_SMALL,
+  PURPLE_BIG
+
 };
 
 enum class ArmorNumber
@@ -49,7 +54,6 @@ typedef struct
   float prob;
   std::vector<cv::Point2f> pts;
   cv::Rect box;
-  bool is_big=false;
   float dis;
 } ArmorObject;
 
