@@ -20,10 +20,10 @@
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/convert.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <rclcpp/rclcpp.hpp>
 #include <rmoss_util/url_resolver.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 namespace rm_auto_aim {
 OpenVINODetectNode::OpenVINODetectNode(rclcpp::NodeOptions options)
@@ -122,7 +122,7 @@ OpenVINODetectNode::OpenVINODetectNode(rclcpp::NodeOptions options)
       });
   auto qos = use_sensor_data_qos ? rmw_qos_profile_sensor_data
                                  : rmw_qos_profile_default;
-  //设置队列长度为1，保证实时性
+  // 设置队列长度为1，保证实时性
   qos.depth = 1;
   img_sub_ = std::make_shared<image_transport::Subscriber>(
       image_transport::create_subscription(
@@ -191,7 +191,6 @@ void OpenVINODetectNode::imgCallback(
 void OpenVINODetectNode::publishArmorsMsg(
     const sensor_msgs::msg::Image::ConstSharedPtr &img_msg,
     std::vector<ArmorObject> &objs) {
-
   armors_msg_.header = armor_marker_.header = text_marker_.header =
       img_msg->header;
   armors_msg_.armors.clear();
@@ -214,9 +213,9 @@ void OpenVINODetectNode::publishArmorsMsg(
   armors_pub_->publish(armors_msg_);
   auto final_time = this->now();
   auto latency = (final_time - img_msg->header.stamp).seconds() * 1000;
-  RCLCPP_DEBUG_STREAM(this->get_logger(),
-                     "inference and pub msg tolltal Latency: " << latency
-                                                               << "ms");
+  RCLCPP_DEBUG_STREAM(
+      this->get_logger(),
+      "inference and pub msg tolltal Latency: " << latency << "ms");
   // Publishing marker
   publishMarkers();
 
@@ -277,33 +276,33 @@ void OpenVINODetectNode::fillArmorMsg(
 std::string OpenVINODetectNode::getText(ArmorObject &obj) {
   std::string armor_type;
   switch (obj.color) {
-  case ArmorColor::BLUE_SMALL:
-    armor_type = "blue small";
-    break;
-  case ArmorColor::BLUE_BIG:
-    armor_type = "blue big";
-    break;
-  case ArmorColor::RED_SMALL:
-    armor_type = "red small";
-    break;
-  case ArmorColor::RED_BIG:
-    armor_type = "red big";
-    break;
-  case ArmorColor::GRAY_SMALL:
-    armor_type = "gray small";
-    break;
-  case ArmorColor::GRAY_BIG:
-    armor_type = "gray big";
-    break;
-  case ArmorColor::PURPLE_SMALL:
-    armor_type = "purple small";
-    break;
-  case ArmorColor::PURPLE_BIG:
-    armor_type = "purple big";
-    break;
-  default:
-    armor_type = "none";
-    break;
+    case ArmorColor::BLUE_SMALL:
+      armor_type = "blue small";
+      break;
+    case ArmorColor::BLUE_BIG:
+      armor_type = "blue big";
+      break;
+    case ArmorColor::RED_SMALL:
+      armor_type = "red small";
+      break;
+    case ArmorColor::RED_BIG:
+      armor_type = "red big";
+      break;
+    case ArmorColor::GRAY_SMALL:
+      armor_type = "gray small";
+      break;
+    case ArmorColor::GRAY_BIG:
+      armor_type = "gray big";
+      break;
+    case ArmorColor::PURPLE_SMALL:
+      armor_type = "purple small";
+      break;
+    case ArmorColor::PURPLE_BIG:
+      armor_type = "purple big";
+      break;
+    default:
+      armor_type = "none";
+      break;
   }
   return armor_type;
 }
@@ -311,7 +310,6 @@ std::string OpenVINODetectNode::getText(ArmorObject &obj) {
 void OpenVINODetectNode::publishDebugImage(
     const sensor_msgs::msg::Image::ConstSharedPtr &img_msg,
     std::vector<ArmorObject> &objs) {
-
   if (!debug_mode_) {
     return;
   }
@@ -361,7 +359,7 @@ void OpenVINODetectNode::publishMarkers() {
   marker_pub_->publish(marker_array_);
 }
 
-} // namespace rm_auto_aim
+}  // namespace rm_auto_aim
 
 #include "rclcpp_components/register_node_macro.hpp"
 
